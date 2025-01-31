@@ -11,7 +11,7 @@
     "@openzeppelin/contracts": "^4.9.0",
     "chai": "^4.3.7",
     "ethers": "^5.7.0",
-    "hardhat": "^2.16.1"
+    "hardhat": "^2.22.18"
   },
   "dependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^1.0.0",
@@ -23,6 +23,7 @@
     "@types/chai": "^4.2.0",
     "@types/mocha": ">=9.1.0",
     "hardhat-gas-reporter": "^1.0.8",
+    "nostr-tools": "^2.10.4",
     "solidity-coverage": "^0.8.1",
     "ts-node": ">=8.0.0",
     "typechain": "^8.1.0",

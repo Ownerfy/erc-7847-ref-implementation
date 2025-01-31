@@ -26,9 +26,6 @@ contract SocialMediaNFT is ERC721 {
      * @dev Emitted whenever a new social media post is created (ERC-7847).
      *
      * Required fields from ERC-7847:
-     *  - publisher
-     *  - tokenId
-     *  - uri
      *  - id
      *  - pubkey
      *  - created_at
@@ -38,9 +35,6 @@ contract SocialMediaNFT is ERC721 {
      *  - sig
      */
     event PubEvent(
-        uint256 tokenId,
-        string uri,
-        bytes32 indexed replyTo,
         bytes32 id,
         bytes32 indexed pubkey,
         uint256 created_at,
@@ -90,7 +84,6 @@ contract SocialMediaNFT is ERC721 {
      * @dev Creates a new post (mints a new token) and emits `PubEvent` (ERC-7847).
      *
      * @param uri         The metadata URI for the new token.
-     * @param replyTo     The ID of a post being replied to
      * @param id          A unique identifier for the post (e.g., content hash).
      * @param pubkey      A public key or unique identifier for the publisher.
      * @param created_at  Timestamp (block time or external) for the post creation.
@@ -101,7 +94,6 @@ contract SocialMediaNFT is ERC721 {
      */
     function createPost(
         string memory uri,
-        bytes32 replyTo,
         bytes32 id,
         bytes32 pubkey,
         uint256 created_at,
@@ -111,21 +103,10 @@ contract SocialMediaNFT is ERC721 {
         string memory sig
     ) public {
         // Mint a new token with auto-incremented ID
-        uint256 newTokenId = _mintToken(msg.sender, uri);
+        _mintToken(msg.sender, uri);
 
         // Emit the event as required by ERC-7847
-        emit PubEvent(
-            newTokenId,
-            uri,
-            replyTo,
-            id,
-            pubkey,
-            created_at,
-            kind,
-            content,
-            tags,
-            sig
-        );
+        emit PubEvent(id, pubkey, created_at, kind, content, tags, sig);
     }
 
     /**

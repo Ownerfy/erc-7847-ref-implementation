@@ -1,13 +1,23 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
+const {
+  generateSecretKey,
+  getPublicKey,
+  finalizeEvent,
+} = require("nostr-tools/pure");
 
 describe("SocialMediaNFT", function () {
   let SocialMediaNFT, socialMediaNFT;
   let owner, addr1;
+  let sk, pk; // Nostr private and public keys
 
   before(async function () {
     [owner, addr1] = await ethers.getSigners();
     SocialMediaNFT = await ethers.getContractFactory("SocialMediaNFT");
+
+    // Generate Nostr keypair
+    sk = generateSecretKey(); // 32 bytes private key
+    pk = getPublicKey(sk); // 32 bytes public key
   });
 
   beforeEach(async function () {
@@ -20,97 +30,156 @@ describe("SocialMediaNFT", function () {
   });
 
   it("Should create a post and increment tokenId", async function () {
-    // Create a new post
+    // Create a Nostr event
+    const unsignedEvent = {
+      kind: 1,
+      created_at: Math.floor(Date.now() / 1000),
+      tags: [
+        [
+          "imeta",
+          "url https://nostr.build/i/my-image.jpg",
+          "m image/jpeg",
+          "dim 3024x4032",
+          "alt A scenic photo overlooking the coast of Costa Rica",
+        ],
+      ],
+      content: "Hello, world!",
+      pubkey: pk,
+    };
+
+    // Finalize and sign the event
+    const event = finalizeEvent(unsignedEvent, sk);
+
+    // Create NFT post with Nostr event data
     const tx = await socialMediaNFT.createPost(
       "https://example.com/metadata.json",
-      "0xd283f3979d00cb5493f2da07819695bc299fba24aa6e0bacb484fe07a2fc0ae0",
-      "0x4659db3b248cae1bb6856ee63308af6c9c15239e3bb76f425fbacdd84bb15330",
-      "0xc3cea60c7e452527daae9d5eb78805f44aac272a8075eeb6779be011e572fff2",
-      1736063047889,
-      1, // kind
-      "Hello, world!", // content
-      '["imeta", "url https://nostr.build/i/my-image.jpg", "m image/jpeg" "dim 3024x4032", "alt A scenic photo overlooking the coast of Costa Rica", "fallback https://nostrcheck.me/alt1.jpg", "fallback https://void.cat/alt1.jpg"]',
-      "0xc3cea60c7e452527daae9d5eb78805f44aac272a8075eeb6779be011e572fff2c3cea60c7e452527daae9d5eb78805f44aac272a8075eeb6779be011e572fff2" // sig
+      `0x${event.id}`, // Convert hex string to bytes32
+      `0x${event.pubkey}`, // Convert hex string to bytes32
+      event.created_at,
+      event.kind,
+      event.content,
+      JSON.stringify(event.tags),
+      event.sig // Already hex string
     );
     await tx.wait();
 
-    // currentTokenId should now be 1
     expect(await socialMediaNFT.currentTokenId()).to.equal(1);
+
+    // Create second post
+    const unsignedEvent2 = {
+      ...unsignedEvent,
+      content: "Hello, world 2!",
+      tags: [
+        [
+          "imeta",
+          "url https://nostr.build/i/my-image2.jpg",
+          "m image/jpeg",
+          "dim 3024x4032",
+          "alt Another scenic photo",
+        ],
+      ],
+    };
+    const event2 = finalizeEvent(unsignedEvent2, sk);
 
     const tx2 = await socialMediaNFT.createPost(
       "https://example.com/metadata2.json",
-      "0xd283f3979d00cb5493f2da07819695bc299fba24aa6e0bacb484fe07a2fc0ae0",
-      "0x4659db3b248cae1bb6856ee63308af6c9c15239e3bb76f425fbacdd84bb15330",
-      "0xc3cea60c7e452527daae9d5eb78805f44aac272a8075eeb6779be011e572fff2",
-      1736063047889,
-      1, // kind
-      "Hello, world!", // content
-      '["imeta", "url https://nostr.build/i/my-image2.jpg", "m image/jpeg" "dim 3024x4032", "alt A scenic photo overlooking the coast of Costa Rica", "fallback https://nostrcheck.me/alt2.jpg", "fallback https://void.cat/alt2.jpg"]',
-      "0xc3cea60c7e452527daae9d5eb78805f44aac272a8075eeb6779be011e572fff2c3cea60c7e452527daae9d5eb78805f44aac272a8075eeb6779be011e572fff2" // sig
+      `0x${event2.id}`,
+      `0x${event2.pubkey}`,
+      event2.created_at,
+      event2.kind,
+      event2.content,
+      JSON.stringify(event2.tags),
+      event2.sig
     );
     await tx2.wait();
 
-    // currentTokenId should now be 2
     expect(await socialMediaNFT.currentTokenId()).to.equal(2);
-
-    // tokenURI(0) should be stored as "https://example.com/metadata.json"
     expect(await socialMediaNFT.tokenURI(0)).to.equal(
       "https://example.com/metadata.json"
     );
   });
 
   it("Should emit PubEvent with correct args on createPost", async function () {
+    const unsignedEvent = {
+      kind: 1,
+      created_at: Math.floor(Date.now() / 1000),
+      tags: [
+        [
+          "imeta",
+          "url https://nostr.build/i/my-image3.jpg",
+          "m image/jpeg",
+          "dim 3024x4032",
+          "alt Beautiful mountain landscape",
+        ],
+      ],
+      content: "Hello, world 3!",
+      pubkey: pk,
+    };
+
+    const event = finalizeEvent(unsignedEvent, sk);
+
     await expect(
       socialMediaNFT.createPost(
-        "https://example.com/metadata2.json",
-        "0xd283f3979d00cb5493f2da07819695bc299fba24aa6e0bacb484fe07a2fc0ae0",
-        "0x4659db3b248cae1bb6856ee63308af6c9c15239e3bb76f425fbacdd84bb15330",
-        "0xc3cea60c7e452527daae9d5eb78805f44aac272a8075eeb6779be011e572fff2",
-        1736063047889,
-        1, // kind
-        "Hello, world 2!", // content
-        '["imeta", "url https://nostr.build/i/my-image2.jpg", "m image/jpeg" "dim 3024x4032", "alt A scenic photo overlooking the coast of Costa Rica", "fallback https://nostrcheck.me/alt2.jpg", "fallback https://void.cat/alt2.jpg"]',
-        "0xc3cea60c7e452527daae9d5eb78805f44aac272a8075eeb6779be011e572fff2c3cea60c7e452527daae9d5eb78805f44aac272a8075eeb6779be011e572fff2" // sig
+        "https://example.com/metadata3.json",
+        `0x${event.id}`,
+        `0x${event.pubkey}`,
+        event.created_at,
+        event.kind,
+        event.content,
+        JSON.stringify(event.tags),
+        event.sig
       )
     )
       .to.emit(socialMediaNFT, "PubEvent")
-      // We check only some arguments to keep the test simpler,
-      // especially since some fields are `indexed`.
-      // Hardhat Chai matchers let us verify them in a partial manner:
       .withArgs(
-        0, // tokenId
-        "https://example.com/metadata2.json",
-        "0xd283f3979d00cb5493f2da07819695bc299fba24aa6e0bacb484fe07a2fc0ae0",
-        "0x4659db3b248cae1bb6856ee63308af6c9c15239e3bb76f425fbacdd84bb15330",
-        "0xc3cea60c7e452527daae9d5eb78805f44aac272a8075eeb6779be011e572fff2",
-        1736063047889,
-        1, // kind
-        "Hello, world 2!", // content
-        '["imeta", "url https://nostr.build/i/my-image2.jpg", "m image/jpeg" "dim 3024x4032", "alt A scenic photo overlooking the coast of Costa Rica", "fallback https://nostrcheck.me/alt2.jpg", "fallback https://void.cat/alt2.jpg"]',
-        "0xc3cea60c7e452527daae9d5eb78805f44aac272a8075eeb6779be011e572fff2c3cea60c7e452527daae9d5eb78805f44aac272a8075eeb6779be011e572fff2" // sig
+        `0x${event.id}`,
+        `0x${event.pubkey}`,
+        event.created_at,
+        event.kind,
+        event.content,
+        JSON.stringify(event.tags),
+        event.sig
       );
   });
 
   it("Should allow a different account to create a post", async function () {
+    // Generate new Nostr keypair for addr1
+    const sk2 = generateSecretKey();
+    const pk2 = getPublicKey(sk2);
+
+    const unsignedEvent = {
+      kind: 1,
+      created_at: Math.floor(Date.now() / 1000),
+      tags: [
+        [
+          "imeta",
+          "url https://nostr.build/i/my-image4.jpg",
+          "m image/jpeg",
+          "dim 3024x4032",
+          "alt Mountain lake at sunset",
+        ],
+      ],
+      content: "Post from different account",
+      pubkey: pk2,
+    };
+
+    const event = finalizeEvent(unsignedEvent, sk2);
+
     // Connect contract to addr1
     const socialMediaNFT_addr1 = socialMediaNFT.connect(addr1);
 
     await socialMediaNFT_addr1.createPost(
       "https://example.com/addr1.json",
-      "0xd283f3979d00cb5493f2da07819695bc299fba24aa6e0bacb484fe07a2fc0ae0",
-      "0x4659db3b248cae1bb6856ee63308af6c9c15239e3bb76f425fbacdd84bb15330",
-      "0x301de8ee9925fb0b5eb5f2e23a2c06019846f57430cbd0b1b1a8555e9c0e8e56",
-      1736063047889,
-      1, // kind
-      "Hello, world 2!", // content
-      '["imeta", "url https://nostr.build/i/my-image2.jpg", "m image/jpeg" "dim 3024x4032", "alt A scenic photo overlooking the coast of Costa Rica", "fallback https://nostrcheck.me/alt2.jpg", "fallback https://void.cat/alt2.jpg"]',
-      "0xc3cea60c7e452527daae9d5eb78805f44aac272a8075eeb6779be011e572fff2c3cea60c7e452527daae9d5eb78805f44aac272a8075eeb6779be011e572fff2" // sig
+      `0x${event.id}`,
+      `0x${event.pubkey}`,
+      event.created_at,
+      event.kind,
+      event.content,
+      JSON.stringify(event.tags),
+      event.sig
     );
 
-    // currentTokenId() should be 1 after first mint
     expect(await socialMediaNFT.currentTokenId()).to.equal(1);
-
-    // tokenURI(0) => "https://example.com/addr1.json"
     expect(await socialMediaNFT.tokenURI(0)).to.equal(
       "https://example.com/addr1.json"
     );
