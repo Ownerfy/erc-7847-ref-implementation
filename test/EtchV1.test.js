@@ -275,12 +275,9 @@ describe("EtchV1", function () {
         1,
         false
       )
-    ).to.be.revertedWith(
-      "AccessControl: account " +
-        addr1.address.toLowerCase() +
-        " is missing role " +
-        MINTER_ROLE
-    );
+    )
+      .to.be.revertedWithCustomError(etchV1, "AccessControlUnauthorizedAccount")
+      .withArgs(addr1.address, MINTER_ROLE);
 
     // First create a post as owner (who has MINTER_ROLE)
     await etchV1.createPost(
@@ -310,12 +307,9 @@ describe("EtchV1", function () {
         "[]",
         event.sig
       )
-    ).to.be.revertedWith(
-      "AccessControl: account " +
-        addr1.address.toLowerCase() +
-        " is missing role " +
-        MINTER_ROLE
-    );
+    )
+      .to.be.revertedWithCustomError(etchV1, "AccessControlUnauthorizedAccount")
+      .withArgs(addr1.address, MINTER_ROLE);
   });
 
   it("Should allow minter to create and update posts", async function () {
