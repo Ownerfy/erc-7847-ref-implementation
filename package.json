@@ -22,6 +22,8 @@
     "@typechain/hardhat": "^6.1.2",
     "@types/chai": "^4.2.0",
     "@types/mocha": ">=9.1.0",
+    "dotenv": "^16.4.7",
+    "hardhat-deploy": "^0.14.0",
     "hardhat-gas-reporter": "^1.0.8",
     "nostr-tools": "^2.10.4",
     "solidity-coverage": "^0.8.1",

@@ -51,8 +51,9 @@ describe("EtchV1", function () {
     const event = finalizeEvent(unsignedEvent, sk);
 
     const tx = await etchV1.createPost(
+      owner.address,
       "https://example.com/metadata.json",
-      1, // tokenId
+      1,
       `0x${event.id}`,
       `0x${event.pubkey}`,
       event.created_at,
@@ -60,8 +61,7 @@ describe("EtchV1", function () {
       event.content,
       JSON.stringify(event.tags),
       event.sig,
-      1, // quantity
-      false // allowMultiple
+      1 // quantity
     );
     await tx.wait();
 
@@ -83,6 +83,7 @@ describe("EtchV1", function () {
     );
 
     await etchV1.createPost(
+      owner.address, // mint to owner
       "https://example.com/1.json",
       1, // tokenId
       `0x${event.id}`,
@@ -92,8 +93,7 @@ describe("EtchV1", function () {
       event.content,
       "[]",
       event.sig,
-      1,
-      false
+      1
     );
 
     const event2 = finalizeEvent(
@@ -109,6 +109,7 @@ describe("EtchV1", function () {
 
     await expect(
       etchV1.createPost(
+        owner.address, // mint to owner
         "https://example.com/2.json",
         1, // same tokenId
         `0x${event2.id}`,
@@ -118,8 +119,7 @@ describe("EtchV1", function () {
         event2.content,
         "[]",
         event2.sig,
-        1,
-        false
+        1
       )
     ).to.be.revertedWith("Token already exists");
   });
@@ -137,6 +137,7 @@ describe("EtchV1", function () {
     );
 
     await etchV1.createPost(
+      owner.address, // mint to owner
       "https://example.com/multi.json",
       1,
       `0x${event.id}`,
@@ -146,8 +147,7 @@ describe("EtchV1", function () {
       event.content,
       "[]",
       event.sig,
-      2, // quantity of 2
-      true // allowMultiple
+      2
     );
 
     expect(await etchV1.balanceOf(owner.address, 1)).to.equal(2);
@@ -167,6 +167,7 @@ describe("EtchV1", function () {
     );
 
     await etchV1.createPost(
+      owner.address, // mint to owner
       "https://example.com/original.json",
       1,
       `0x${event.id}`,
@@ -176,8 +177,7 @@ describe("EtchV1", function () {
       event.content,
       "[]",
       event.sig,
-      1,
-      false
+      1
     );
 
     // Create update event
@@ -263,6 +263,7 @@ describe("EtchV1", function () {
 
     await expect(
       etchV1_addr1.createPost(
+        addr1.address, // non-minter trying to mint to self
         "https://example.com/unauthorized.json",
         1,
         `0x${event.id}`,
@@ -272,15 +273,15 @@ describe("EtchV1", function () {
         event.content,
         "[]",
         event.sig,
-        1,
-        false
+        1
       )
     )
       .to.be.revertedWithCustomError(etchV1, "AccessControlUnauthorizedAccount")
       .withArgs(addr1.address, MINTER_ROLE);
 
-    // First create a post as owner (who has MINTER_ROLE)
+    // First create a post as owner
     await etchV1.createPost(
+      owner.address, // mint to owner
       "https://example.com/owner.json",
       1,
       `0x${event.id}`,
@@ -290,8 +291,7 @@ describe("EtchV1", function () {
       event.content,
       "[]",
       event.sig,
-      1,
-      false
+      1
     );
 
     // Try to update as non-minter
@@ -331,6 +331,7 @@ describe("EtchV1", function () {
 
     // Create post as minter
     await etchV1_addr1.createPost(
+      addr1.address, // authorized minter minting to self
       "https://example.com/authorized.json",
       1,
       `0x${event.id}`,
@@ -340,8 +341,7 @@ describe("EtchV1", function () {
       event.content,
       "[]",
       event.sig,
-      1,
-      false
+      1
     );
 
     expect(await etchV1.balanceOf(addr1.address, 1)).to.equal(1);
@@ -378,6 +378,7 @@ describe("EtchV1", function () {
 
     await expect(
       etchV1.createPost(
+        owner.address, // mint to owner
         "https://example.com/event-test.json",
         1,
         `0x${event.id}`,
@@ -387,8 +388,7 @@ describe("EtchV1", function () {
         event.content,
         "[]",
         event.sig,
-        1,
-        false
+        1
       )
     )
       .to.emit(etchV1, "PubEvent")
@@ -417,6 +417,7 @@ describe("EtchV1", function () {
     );
 
     await etchV1.createPost(
+      owner.address, // mint to owner
       "https://example.com/original.json",
       1,
       `0x${createEvent.id}`,
@@ -426,8 +427,7 @@ describe("EtchV1", function () {
       createEvent.content,
       "[]",
       createEvent.sig,
-      1,
-      false
+      1
     );
 
     // Create update event
@@ -466,5 +466,115 @@ describe("EtchV1", function () {
         "[]",
         updateEvent.sig
       );
+  });
+
+  it("Should mint token to specified address", async function () {
+    const event = finalizeEvent(
+      {
+        kind: 1,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [],
+        content: "Mint to different address",
+        pubkey: pk,
+      },
+      sk
+    );
+
+    // Create post and mint to addr1's address
+    await etchV1.createPost(
+      addr1.address, // mint to addr1 instead of sender
+      "https://example.com/different-address.json",
+      1,
+      `0x${event.id}`,
+      `0x${event.pubkey}`,
+      event.created_at,
+      event.kind,
+      event.content,
+      "[]",
+      event.sig,
+      1
+    );
+
+    // Check that addr1 received the token
+    expect(await etchV1.balanceOf(addr1.address, 1)).to.equal(1);
+    // Check that sender (owner) did not receive the token
+    expect(await etchV1.balanceOf(owner.address, 1)).to.equal(0);
+    // Verify URI is still set correctly
+    expect(await etchV1.uri(1)).to.equal(
+      "https://example.com/different-address.json"
+    );
+  });
+
+  it("Should control multiple minting with setAllowMultiple", async function () {
+    const event = finalizeEvent(
+      {
+        kind: 1,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [],
+        content: "Multiple mint test",
+        pubkey: pk,
+      },
+      sk
+    );
+
+    // First mint should succeed
+    await etchV1.createPost(
+      owner.address,
+      "https://example.com/multi.json",
+      1,
+      `0x${event.id}`,
+      `0x${event.pubkey}`,
+      event.created_at,
+      event.kind,
+      event.content,
+      "[]",
+      event.sig,
+      1
+    );
+
+    // Second mint should fail by default
+    await expect(
+      etchV1.createPost(
+        owner.address,
+        "https://example.com/multi.json",
+        1,
+        `0x${event.id}`,
+        `0x${event.pubkey}`,
+        event.created_at,
+        event.kind,
+        event.content,
+        "[]",
+        event.sig,
+        1
+      )
+    ).to.be.revertedWith("Token already exists");
+
+    // Enable multiple minting for tokenId 1
+    await etchV1.setAllowMultiple(1, true);
+
+    // Now second mint should succeed
+    await etchV1.createPost(
+      owner.address,
+      "https://example.com/multi.json",
+      1,
+      `0x${event.id}`,
+      `0x${event.pubkey}`,
+      event.created_at,
+      event.kind,
+      event.content,
+      "[]",
+      event.sig,
+      1
+    );
+
+    expect(await etchV1.balanceOf(owner.address, 1)).to.equal(2);
+  });
+
+  it("Should only allow MINTER_ROLE to set allowMultiple", async function () {
+    const etchV1_addr1 = etchV1.connect(addr1);
+
+    await expect(etchV1_addr1.setAllowMultiple(1, true))
+      .to.be.revertedWithCustomError(etchV1, "AccessControlUnauthorizedAccount")
+      .withArgs(addr1.address, MINTER_ROLE);
   });
 });

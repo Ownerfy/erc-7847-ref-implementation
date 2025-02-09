@@ -7,11 +7,14 @@ import {ERC1155Supply} from "@openzeppelin/contracts/token/ERC1155/extensions/ER
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 
 /**
- * @title ERC-7847 Social Media NFT using ERC-1155
+ * @title ERC-7847 Social Media NFTs
+ * @author @nickjunes @etch.social Ownerfy.com via Etch.social
  *
  * @dev Inherits from OpenZeppelin's ERC1155 and Ownable, and adds the `createPost` function
- *      required by the ERC-7847 spec. Token IDs are auto-incremented starting at 0.
- *      Compatible with Solidity 0.8.20.
+ *      required by the ERC-7847 spec.
+ *      Compatible with Solidity 0.8.20. More information about this contract can be found at
+ *      https://github.com/ethereum/ERCs/blob/068ef5d6c48ff55914a0a78b426961ac96da0202/ERCS/erc-7847.md
+ *      This version allows for the multiple mintings of tokens to be turned on and off.
  */
 contract EtchV1 is ERC1155, ERC1155Supply, AccessControl {
     // -------------------------------------------------
@@ -23,6 +26,9 @@ contract EtchV1 is ERC1155, ERC1155Supply, AccessControl {
 
     // Add a variable to track the highest token ID
     uint256 private _highestTokenId;
+
+    // Add mapping to track which tokens can be minted multiple times
+    mapping(uint256 => bool) private _allowMultiple;
 
     // Add role identifier
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
@@ -53,16 +59,26 @@ contract EtchV1 is ERC1155, ERC1155Supply, AccessControl {
     // -------------------------------------------------
 
     /**
+     * @dev Sets whether a token can be minted multiple times
+     * Can only be called by addresses with MINTER_ROLE
+     */
+    function setAllowMultiple(
+        uint256 tokenId,
+        bool allow
+    ) public onlyRole(MINTER_ROLE) {
+        _allowMultiple[tokenId] = allow;
+    }
+
+    /**
      * @dev Internal function to mint tokens with a specified ID
      */
     function _mintToken(
         address recipient,
         uint256 tokenId,
         string memory url,
-        uint256 quantity,
-        bool allowMultiple
+        uint256 quantity
     ) internal returns (uint256) {
-        if (!allowMultiple) {
+        if (!_allowMultiple[tokenId]) {
             require(totalSupply(tokenId) == 0, "Token already exists");
         }
 
@@ -95,6 +111,7 @@ contract EtchV1 is ERC1155, ERC1155Supply, AccessControl {
      * Can only be called by addresses with MINTER_ROLE.
      */
     function createPost(
+        address toAddress,
         string memory url,
         uint256 tokenId,
         bytes32 id,
@@ -104,11 +121,9 @@ contract EtchV1 is ERC1155, ERC1155Supply, AccessControl {
         string memory content,
         string memory tags,
         string memory sig,
-        uint256 quantity,
-        bool allowMultiple
+        uint256 quantity
     ) public onlyRole(MINTER_ROLE) {
-        _mintToken(msg.sender, tokenId, url, quantity, allowMultiple);
-
+        _mintToken(toAddress, tokenId, url, quantity);
         emit PubEvent(id, pubkey, created_at, kind, content, tags, sig);
     }
 
